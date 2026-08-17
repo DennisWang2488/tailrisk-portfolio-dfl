@@ -10,7 +10,7 @@ The setup is built so an oracle — the same optimizer, given the true condition
 
 ## Result
 
-Estimate-then-optimize has the lowest out-of-sample 95% CVaR and the lowest oracle regret in all five regimes, including the two built to favor end-to-end training. The two two-stage variants take the top two slots of six methods every time.
+Estimate-then-optimize has the lowest out-of-sample 95% CVaR and the lowest oracle regret in all five regimes, including two where forecast misspecification would be expected to help end-to-end training. The two two-stage variants take the top two slots of six methods every time.
 
 Best two-stage vs. best DFL, paired by seed (lower is better):
 
