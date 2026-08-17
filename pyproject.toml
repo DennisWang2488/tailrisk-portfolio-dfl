@@ -1,0 +1,19 @@
+[project]
+name = "tailrisk-dfl-portfolio"
+version = "0.1.0"
+description = "Synthetic experiments for decision-focused CVaR portfolio construction."
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "torch",
+    "matplotlib",
+    "seaborn",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "-p no:cacheprovider"
+testpaths = ["tests"]

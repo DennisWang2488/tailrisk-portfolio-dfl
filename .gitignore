@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# build artefacts from `pip install -e .`
+*.egg-info/
+build/
+dist/
+
+# virtualenvs
+.venv/
+venv/
+env/
+
+# macOS
+.DS_Store
+
+# LaTeX / editor strays
+*.log
+*.aux
+*.fls
+*.fdb_latexmk
+
+# Scratch experiment output. The two result sets referenced by RESULTS_v2.md
+# and RESULTS_v1_superseded.md are committed; anything else is regenerable.
+outputs/*
+!outputs/research_grid/
+!outputs/research_grid_v2/
+!outputs/smoke/
