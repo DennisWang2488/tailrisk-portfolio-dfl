@@ -14,6 +14,8 @@ from .synthetic import SyntheticMarket
 
 
 def _split_indices(config: RegimeConfig) -> tuple[slice, slice, slice]:
+    # config says 60/15/25. we don't actually use the val block — see fit_slice
+    # below. left it in so a later run can pick DFL hyperparameters on it.
     train_end = int(config.n_periods * config.train_fraction)
     val_end = train_end + int(config.n_periods * config.validation_fraction)
     return slice(0, train_end), slice(train_end, val_end), slice(val_end, config.n_periods)
@@ -38,6 +40,7 @@ def _make_methods(config: ExperimentConfig, regime: RegimeConfig, seed: int):
         elif name == "two_stage":
             methods.append(TwoStageCVaRMethod(name, params, train.ridge_alpha, opt.n_scenarios, seed + 101))
         elif name == "robust_two_stage":
+            # +101 / +202 / +303 so the methods don't share an rng stream
             methods.append(TwoStageCVaRMethod(name, params, train.ridge_alpha, opt.n_scenarios, seed + 202, robust=True))
         elif name == "dfl":
             methods.append(
@@ -92,7 +95,7 @@ def run_experiment(config: ExperimentConfig, output_dir: str | Path) -> tuple[pd
             market = SyntheticMarket(regime, seed)
             path = market.simulate()
             train_slice, val_slice, test_slice = _split_indices(regime)
-            fit_slice = slice(train_slice.start, val_slice.stop)
+            fit_slice = slice(train_slice.start, val_slice.stop)  # train+val. val is unused.
             x_fit = path.features[fit_slice]
             r_fit = path.returns[fit_slice]
             x_test = path.features[test_slice]

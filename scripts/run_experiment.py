@@ -15,6 +15,8 @@ from tailrisk_dfl.plotting import write_summary_plots
 
 
 def main() -> None:
+    # OMP_NUM_THREADS=1 from the shell. without it this segfaults partway
+    # through the grid (torch vs numpy fighting over OpenMP).
     parser = argparse.ArgumentParser(description="Run synthetic DFL vs two-stage CVaR portfolio experiments.")
     parser.add_argument("--config", required=True, help="Path to a JSON experiment config.")
     parser.add_argument("--output", required=True, help="Directory for CSV outputs.")

@@ -9,6 +9,9 @@ from torch import nn
 from .baselines import PortfolioMethod
 from .optimizer import project_to_capped_simplex
 
+# Softmax policy + a smoothed CVaR objective. I didn't unroll the LP — the
+# gradient through HiGHS was garbage at these sample sizes.
+
 
 class PortfolioNet(nn.Module):
     def __init__(self, n_features: int, n_assets: int, hidden: int):
@@ -22,10 +25,14 @@ class PortfolioNet(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # already on the simplex; we still project later for the 20% cap
         return torch.softmax(self.net(x), dim=-1)
 
 
 def _smooth_cvar(losses: torch.Tensor, alpha: float, tau: float) -> torch.Tensor:
+    # detach the quantile — torch.quantile isn't a useful backward pass.
+    # tau has to be << the loss sd or this is just a smeared mean. v1 had 0.01
+    # and only ~7–40% of the gradient landed on the actual tail. use 1e-4.
     eta = torch.quantile(losses.detach(), alpha)
     excess = torch.nn.functional.softplus((losses - eta) / tau) * tau
     return eta + excess.mean() / (1.0 - alpha)
@@ -57,6 +64,7 @@ class DecisionFocusedCVaRMethod(PortfolioMethod):
         self.model_ = PortfolioNet(self.n_features, self.n_assets, self.hidden)
         opt = torch.optim.AdamW(self.model_.parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
+        # robust_dfl just trains at a slightly worse alpha. cheap, not fancy.
         alpha = min(0.99, self.alpha + 0.025) if self.robust else self.alpha
         for _ in range(self.epochs):
             weights = self.model_(x)
@@ -64,10 +72,12 @@ class DecisionFocusedCVaRMethod(PortfolioMethod):
             losses = -gross_returns
             cvar = _smooth_cvar(losses, alpha, self.smooth_tau)
             mean_term = -self.gamma * gross_returns.mean()
+            # consecutive training rows, not the actual backtest path — the
+            # policy is stateless so this is only a turnover *proxy*.
             turnover = torch.abs(weights[1:] - weights[:-1]).sum(dim=1).mean()
             cap_penalty = torch.tensor(0.0)
             if self.w_max is not None:
-                cap_penalty = 10.0 * torch.relu(weights - self.w_max).pow(2).mean()
+                cap_penalty = 10.0 * torch.relu(weights - self.w_max).pow(2).mean()  # 10 is a hack, just has to be loud
             objective = cvar + mean_term + self.transaction_cost * turnover + cap_penalty
             opt.zero_grad()
             objective.backward()

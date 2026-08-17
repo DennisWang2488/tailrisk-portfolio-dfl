@@ -27,6 +27,7 @@ def project_to_capped_simplex(weights: np.ndarray, w_max: float | None = None) -
     if cap * n_assets < 1.0 - 1e-12:
         raise ValueError("w_max is infeasible for the number of assets")
 
+    # bisection on the water-filling offset. 100 steps is way more than we need.
     lower = weights.min() - cap
     upper = weights.max()
     for _ in range(100):
@@ -59,6 +60,8 @@ def solve_cvar_lp(
         prev_weights = equal_weight(n_assets)
     prev_weights = np.asarray(prev_weights, dtype=float)
 
+    # vars: [w | eta | xi_s | u_i]
+    # eta = VaR, xi = tail excess, u = |w - w_prev| (ℓ1 turnover)
     n_vars = n_assets + 1 + n_scenarios + n_assets
     eta_idx = n_assets
     xi_start = n_assets + 1
@@ -108,7 +111,7 @@ def solve_cvar_lp(
     cap = 1.0 if params.w_max is None else float(params.w_max)
     for _ in range(n_assets):
         bounds.append((0.0, cap))
-    bounds.append((None, None))
+    bounds.append((None, None))  # eta can be anything
     for _ in range(n_scenarios):
         bounds.append((0.0, None))
     for _ in range(n_assets):
@@ -124,7 +127,7 @@ def solve_cvar_lp(
         method="highs",
     )
     if not result.success:
-        return equal_weight(n_assets)
+        return equal_weight(n_assets)  # rare; don't kill a 5-seed grid over one LP
     return project_to_capped_simplex(result.x[:n_assets], params.w_max)
 
 

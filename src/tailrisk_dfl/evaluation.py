@@ -108,7 +108,7 @@ def compute_metrics(
         oracle_losses = -oracle.net_returns
         oracle_obj = empirical_cvar(oracle_losses, alpha) - gamma * float(oracle.net_returns.mean())
         metrics["oracle_objective"] = oracle_obj
-        metrics["oracle_regret"] = objective - oracle_obj
+        metrics["oracle_regret"] = objective - oracle_obj  # lower is better; can be negative if we beat the oracle sample
     return metrics
 
 

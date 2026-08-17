@@ -7,6 +7,7 @@ from tailrisk_dfl.experiment import run_experiment
 
 
 def test_smoke_experiment_runs() -> None:
+    # just "does the whole path run", not a correctness check.
     config = load_config(Path("configs") / "smoke.json")
     output = Path("outputs") / "test_smoke"
     results, summary = run_experiment(config, output)

@@ -30,6 +30,8 @@ class SyntheticMarket:
         self.n_features = config.n_features
         self.n_factors = min(5, max(2, config.n_assets // 8))
 
+        # row-normalized. v1 scaled misspecification_strength *after* this, so
+        # the nonlinear term came out ~5× too small. strength now has to be O(10).
         self.a_matrix = self.rng.normal(0.0, 1.0, size=(self.n_assets, self.n_features))
         self.a_matrix /= np.linalg.norm(self.a_matrix, axis=1, keepdims=True) + 1e-8
 
@@ -73,7 +75,7 @@ class SyntheticMarket:
         cfg = self.config
         features = np.zeros((cfg.n_periods, cfg.n_features))
         for t in range(1, cfg.n_periods):
-            features[t] = 0.65 * features[t - 1] + self.rng.normal(0.0, 1.0, size=cfg.n_features)
+            features[t] = 0.65 * features[t - 1] + self.rng.normal(0.0, 1.0, size=cfg.n_features)  # lazy AR(1)
         features = _standardize_columns(features)
 
         conditional_means = np.vstack([self.conditional_mean(x) for x in features])
@@ -94,7 +96,9 @@ class SyntheticMarket:
             nonlinear = strength * np.tanh(x @ self.crash_beta) * self.hidden_loading
 
         raw = linear + nonlinear
-        raw = raw - raw.mean()
+        raw = raw - raw.mean()  # no free lunch from a common drift
+        # scale the whole mean vector so E[||μ||] / shock_vol ≈ snr. this is
+        # why "misspecification_strength" is not an R² — R² is measured after.
         shock_scale = np.sqrt(np.mean(np.diag(self.b_matrix @ self.factor_cov @ self.b_matrix.T)) + np.mean(self.idio_scale**2))
         target_mean_scale = self.config.snr * shock_scale
         raw_std = raw.std() + 1e-8
@@ -129,7 +133,7 @@ class SyntheticMarket:
             logits = features @ self.crash_beta
             logits = logits - logits.mean()
             probs = self.config.crash_prob * (1.0 + 1.5 / (1.0 + np.exp(-logits)))
-            probs = np.clip(probs, 0.0, 0.45)
+            probs = np.clip(probs, 0.0, 0.45)  # otherwise a few seeds become crash-only
             crash_flags = rng.uniform(size=t_count) < probs
             if crash_flags.any():
                 crisis_factor = rng.normal(1.0, 0.25, size=crash_flags.sum())[:, None]

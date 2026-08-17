@@ -71,13 +71,15 @@ class TwoStageCVaRMethod(PortfolioMethod):
         self.model_.fit(features, returns)
         fitted = self.model_.predict(features)
         self.residuals_ = returns - fitted
+        # residual bootstrap: predicted mean + a resampled residual row.
+        # robust version overweight the bad residuals so the LP sees more tail.
         self.tail_probs_ = self._tail_sampling_probs(self.residuals_) if self.robust else None
         return self
 
     def decide(self, feature: np.ndarray, prev_weights: np.ndarray) -> np.ndarray:
         pred = self.model_.predict(np.asarray(feature)[None, :])[0]
         if self.robust:
-            pred = 0.6 * pred
+            pred = 0.6 * pred  # shrink the mean; ridge already shrinks, this is extra
             indices = self.rng.choice(len(self.residuals_), size=self.n_scenarios, replace=True, p=self.tail_probs_)
         else:
             indices = self.rng.choice(len(self.residuals_), size=self.n_scenarios, replace=True)
@@ -88,6 +90,7 @@ class TwoStageCVaRMethod(PortfolioMethod):
     def _tail_sampling_probs(residuals: np.ndarray) -> np.ndarray:
         tail_score = -residuals.mean(axis=1)
         ranks = np.argsort(np.argsort(tail_score)).astype(float)
+        # 1 + 3*(rank/max) → worst residual is 4× as likely as the best. arbitrary.
         probs = 1.0 + 3.0 * ranks / max(1.0, ranks.max())
         return probs / probs.sum()
 

@@ -13,7 +13,7 @@ class RegimeConfig:
     n_features: int = 8
     n_periods: int = 500
     train_fraction: float = 0.6
-    validation_fraction: float = 0.15
+    validation_fraction: float = 0.15  # advertised, not used. see experiment.py
     snr: float = 0.5
     tail_df: float = 6.0
     skew: float = 0.0
@@ -32,7 +32,7 @@ class OptimizerConfig:
     w_max: float | None = 0.2
     turnover_penalty: float = 0.001
     n_scenarios: int = 300
-    oracle_scenarios: int = 1200
+    oracle_scenarios: int = 1200  # v1 default. v2 json sets this to 300. don't use this as-is.
 
 
 @dataclass(frozen=True)
@@ -42,7 +42,7 @@ class TrainingConfig:
     dfl_hidden: int = 64
     dfl_lr: float = 0.005
     dfl_weight_decay: float = 1e-4
-    dfl_smooth_tau: float = 0.01
+    dfl_smooth_tau: float = 0.01  # also a v1 leftover. research_grid_v2.json has 1e-4.
 
 
 @dataclass(frozen=True)
