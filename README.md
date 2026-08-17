@@ -1,7 +1,5 @@
 # When Does End-to-End Learning Help Tail-Risk Portfolio Construction?
 
-**Short answer, on this evidence: it doesn't — and the interesting part is what it took to be sure.**
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![Tests](https://img.shields.io/badge/tests-pytest-green.svg)
