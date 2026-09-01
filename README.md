@@ -5,6 +5,8 @@
 
 Simulation: decision-focused learning (train the forecast through the optimizer) vs predict-then-optimize (fit returns, then solve a CVaR LP). 95% CVaR portfolios.
 
+Short version after four rounds: at n ≈ 500 predict-then-optimize wins against a softmax-policy DFL by 1.1–1.6×, but ties a DFL that differentiates through the LP. Under misspecification the thing that helps is a bigger forecaster, not a decision-aware loss. Sections below in the order I found things out.
+
 I used synthetic returns so I can hand the same optimizer the true conditional distribution and score everything on regret against that oracle. A Sharpe that depends on which decade you sampled is not that useful here.
 
 ## Result
@@ -63,6 +65,20 @@ v2 couldn't say whether the gap came from the CVaR objective or from the MLP, si
 
 So the v2 gap is statistical efficiency of the loss, not capacity: MSE uses every row, the smoothed CVaR only sees the tail. When misspecification bites, more capacity in the forecaster fixes it more cheaply than an end-to-end objective. Details: [`RESULTS_v3.md`](RESULTS_v3.md).
 
+## A DFL that actually goes through the LP (v4)
+
+The `dfl` above is a softmax policy that never touches the optimizer. v4 adds `dfl_lp` / `mlp_dfl_lp`: the forecaster is warm-started from the MSE fit, then fine-tuned by backprop through the CVaR LP itself (cvxpylayers, with a small quadratic term so the LP argmin has a usable gradient). Decision time is the exact HiGHS LP `two_stage` uses.
+
+- `dfl_lp` ties `two_stage` in all five regimes (0.91–1.05×, |*t*| ≤ 1.5) and beats the softmax `linear_dfl` 5/5 seeds everywhere, by 0.57–0.77×. The "DFL loses" result was about the softmax policy, not about decision-focused training.
+- `mlp_dfl_lp` doesn't improve on `mlp_two_stage` at n ≈ 500, and 28–40% of cells select zero fine-tune epochs on validation.
+- On the sample-size curve each LP-fine-tuned method tracks its own MSE forecaster's curve. One significant gain, 4% at n = 4000 for the MLP. Forecaster capacity decides the curve; the decision loss barely moves it.
+
+<p align="center">
+  <img src="outputs/sample_size_curve_lp/sample_size_curve_lp.png" width="80%" alt="Sample-size curve, MSE vs LP-fine-tuned forecasters">
+</p>
+
+Details: [`RESULTS_v4.md`](RESULTS_v4.md).
+
 ## Methods
 
 95% CVaR as a Rockafellar–Uryasev LP ([`optimizer.py`](src/tailrisk_dfl/optimizer.py)). Long-only, fully invested, 20% cap, mean-return tilt, ℓ₁ turnover penalty in the objective and again in the backtest, optional hard turnover constraint. HiGHS.
@@ -80,6 +96,8 @@ Everyone uses that same decision layer:
 | `mlp_two_stage` | (v3) same MLP as `dfl`, fit by MSE → bootstrap → CVaR LP |
 | `linear_dfl` | (v3) linear → softmax, trained on smoothed CVaR |
 | `dfl_stateful` | (v3) `dfl` with w_{t−1} as input, trained by rollout |
+| `dfl_lp` | (v4) ridge-init linear forecaster fine-tuned through a cvxpylayers CVaR LP |
+| `mlp_dfl_lp` | (v4) same with the MLP forecaster |
 | `oracle` | CVaR LP given the true conditional distribution |
 
 [`synthetic.py`](src/tailrisk_dfl/synthetic.py) has the knobs: SNR, Student-t tails, skew, factor/block/crisis correlation, nonlinear or hidden-crash misspecification, crash probability, 5–50 bps costs.
@@ -103,6 +121,7 @@ Set `OMP_NUM_THREADS=1`. If you don’t, torch and numpy fight over OpenMP and i
 ## Caveats
 
 - Synthetic only. You need the true conditional law for oracle regret, so this says nothing about real markets.
+- `dfl_lp` only learns the conditional mean end-to-end; the residual distribution is fixed from the MSE fit.
 - v2 used one hyperparameter setting per method. v3 fixes this for the torch methods (val-selected lr / width / epoch); ridge alpha is still fixed at 1.
 - Two-stage gets `prev_weights` and the turnover constraint at decision time. DFL is stateless and only sees a turnover proxy in training, so don’t lean on `high_cost_turnover_constrained`.
 - Two cells are weak: `high_cost` on CVaR (*t* = 2.12, 4/5 seeds) and `heavy_tail` on regret (*t* = 2.02, 3/5 seeds).
@@ -111,9 +130,10 @@ Set `OMP_NUM_THREADS=1`. If you don’t, torch and numpy fight over OpenMP and i
 
 ```
 src/tailrisk_dfl/   optimizer, DFL, generator, walk-forward, metrics
-configs/            smoke.json, research_grid.json (v1), research_grid_v2.json, research_grid_v3.json, sample_size_curve.json
-scripts/            run_experiment.py, analyze_v3.py (paired-by-seed tables)
+configs/            smoke, research_grid (v1), _v2, _v3, _v4, sample_size_curve, sample_size_curve_lp
+scripts/            run_experiment.py, run_parts.py (per-regime parallel + merge), analyze_v3.py (paired tables)
 outputs/            committed results + plots
+RESULTS_v4.md       differentiate-through-the-LP DFL
 RESULTS_v3.md       ablation + sample-size curve
 RESULTS_v2.md       v2 numbers
 RESULTS_v1_superseded.md

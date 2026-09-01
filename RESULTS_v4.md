@@ -88,3 +88,74 @@ Selected fine-tune epochs (0 = validation never beat the MSE init):
 crash regime, fine-tuning almost never helped on validation. So at this
 sample size the honest summary of true DFL is: "usually a no-op, occasionally a
 small gain, occasionally a small loss, net zero against two-stage".
+
+## Result 3: sample-size curve. Through-the-LP fine-tuning tracks its own forecaster's curve
+
+`nonlinear_misspecified`, n_periods ∈ {250 … 8000}, 5 seeds, test CVaR.
+Solid = MSE forecaster, dashed = same forecaster fine-tuned through the LP.
+
+| n | two_stage | dfl_lp | mlp_two_stage | mlp_dfl_lp | dfl (softmax, v3) |
+|---:|---:|---:|---:|---:|---:|
+| 250 | 0.00862 | 0.00819 | 0.00878 | 0.00847 | 0.00988 |
+| 500 | 0.00739 | 0.00729 | 0.00781 | 0.00807 | 0.00942 |
+| 1000 | 0.00733 | 0.00738 | 0.00725 | 0.00785 | 0.00781 |
+| 2000 | 0.00758 | 0.00764 | 0.00611 | 0.00640 | 0.00729 |
+| 4000 | 0.00730 | 0.00742 | 0.00556 | **0.00532** | 0.00701 |
+| 8000 | 0.00710 | 0.00753 | 0.00489 | 0.00484 | 0.00592 |
+
+![sample size curve with LP methods](outputs/sample_size_curve_lp/sample_size_curve_lp.png)
+
+- `dfl_lp` vs `two_stage`: 0.95–1.06×, |*t*| ≤ 1.4 at every n. The linear
+  forecaster hits its misspecification plateau at n ≈ 1000 and fine-tuning
+  through the LP cannot lift it off: the decision loss can only tilt a
+  linear μ, and the linear μ is the problem.
+- `mlp_dfl_lp` vs `mlp_two_stage`: one significant cell, n = 4000 (0.96×,
+  *t* = −3.1, 5/5). Everything else is a wash. At n = 8000 both sit at 0.0048–0.0049.
+- `mlp_dfl_lp` vs the softmax `dfl`: 0.76–0.82× at n ≥ 4000, 5/5, *t* = −5.6 and
+  −11.2. Same MLP, same CVaR loss; routing it through the LP is what matters.
+
+## What the four versions add up to
+
+| question | answer | evidence |
+|---|---|---|
+| Does two-stage beat DFL at n ≈ 500? | Yes, if DFL means a softmax policy. No, if it means fine-tuning through the LP: they tie. | v2/v3 ranks; v4 Result 1 |
+| Is the gap objective or model class? | Objective, but specifically *how* the objective reaches the parameters. Same CVaR loss through the LP loses nothing. | v3 2×2; v4 `dfl_lp` vs `linear_dfl` |
+| When does misspecification bite? | n ≳ 1000: the linear forecaster plateaus. | v3/v4 curves |
+| What fixes it? | Forecaster capacity (MLP + ordinary MSE). Decision-loss fine-tuning adds ≤ 4% on top and only sometimes. | v3 Result 4; v4 Result 3 |
+| Is a validation block worth having? | Yes: it saved DFL 13–25% in v3 and it is what keeps `mlp_dfl_lp` from overfitting the training tail in v4. | v3 Result 2; v4 epochs table |
+
+The clean one-liner: in this simulator, a CVaR portfolio needs a good
+conditional-mean forecaster far more than it needs a decision-aware loss. When
+the forecaster is right, decision-focused fine-tuning is a no-op. When it is
+wrong, the cure is a better forecaster, and decision-focused fine-tuning on a
+wrong forecaster is still a no-op.
+
+## Caveats specific to v4
+
+- Only the conditional mean is learned end-to-end. The scenario *spread*
+  comes from fixed MSE residuals. A DFL that also learns the residual
+  distribution (or the scenario weights) could in principle do more with the
+  tail; that is the natural v5.
+- The training layer differs from the decision LP in three ways: 50 instead of
+  300 scenarios, a `1e-3·‖w‖²` regulariser, and no turnover term (prev weights
+  are equal-weight in training). These were chosen for speed and gradient
+  quality, not tuned.
+- The validation block is 15% of n. At n = 500 that is 75 rows and ≈ 4 tail
+  rows, which is why the selected epoch counts are so jumpy.
+- Wall clock: `dfl_lp` and `mlp_dfl_lp` are ~50× slower to fit than `two_stage`
+  (about 40 s per regime/seed at n = 500 on one core, ~10 min at n = 8000).
+
+## Reproduce
+
+```bash
+pip install -e .   # now pulls cvxpy + cvxpylayers
+for i in 0 1 2 3 4; do OMP_NUM_THREADS=1 python scripts/run_parts.py --config configs/research_grid_v4.json --output outputs/research_grid_v4 --regime-index $i & done; wait
+python scripts/run_parts.py --merge --output outputs/research_grid_v4
+for i in 0 1 2 3 4 5; do OMP_NUM_THREADS=1 python scripts/run_parts.py --config configs/sample_size_curve_lp.json --output outputs/sample_size_curve_lp --regime-index $i & done; wait
+python scripts/run_parts.py --merge --output outputs/sample_size_curve_lp
+python scripts/analyze_v3.py --lp outputs/research_grid_v4 outputs/research_grid_v3
+python scripts/analyze_v3.py --curve outputs/sample_size_curve outputs/sample_size_curve_lp
+pytest
+```
+
+About 25 min for the grid and 90 min for the curve on 4 cores.
