@@ -50,6 +50,14 @@ class TrainingConfig:
     dfl_patience: int = 30
     dfl_lr_grid: list[float] = field(default_factory=list)
     dfl_hidden_grid: list[int] = field(default_factory=list)
+    # v4: differentiate-through-the-LP fine-tuning (dfl_lp / mlp_dfl_lp)
+    dfl_lp_epochs: int = 30
+    dfl_lp_lr: float = 0.001
+    dfl_lp_batch_size: int = 256
+    dfl_lp_train_scenarios: int = 50
+    dfl_lp_patience: int = 6
+    dfl_lp_quad_reg: float = 0.001
+    dfl_lp_lr_grid: list[float] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

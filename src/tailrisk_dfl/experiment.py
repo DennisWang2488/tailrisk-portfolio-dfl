@@ -8,6 +8,7 @@ import pandas as pd
 from .baselines import EqualWeightMethod, MinVarianceMethod, TwoStageCVaRMethod
 from .config import ExperimentConfig, RegimeConfig, config_to_dict
 from .dfl import DecisionFocusedCVaRMethod
+from .dfl_lp import DifferentiableLPMethod
 from .evaluation import backtest_method, compute_metrics, oracle_backtest, summarize_results
 from .optimizer import CVaROptimizerParams
 from .synthetic import SyntheticMarket
@@ -81,6 +82,29 @@ def _make_methods(config: ExperimentConfig, regime: RegimeConfig, seed: int):
             # 2x2 ablation, "objective" arm: ridge-sized model, CVaR objective
             kw = {**dfl_common, "hidden": 0, "hidden_grid": []}
             methods.append(DecisionFocusedCVaRMethod(seed=seed + 606, robust=False, name="linear_dfl", **kw))
+        elif name in ("dfl_lp", "mlp_dfl_lp"):
+            # true DFL: forecaster fine-tuned through the CVaR LP (cvxpylayers),
+            # warm-started from the MSE fit. linear (dfl_lp) or MLP (mlp_dfl_lp).
+            lp_kwargs = dict(
+                epochs=train.dfl_lp_epochs,
+                lr=train.dfl_lp_lr,
+                weight_decay=train.dfl_weight_decay,
+                batch_size=train.dfl_lp_batch_size,
+                train_scenarios=train.dfl_lp_train_scenarios,
+                smooth_tau=train.dfl_smooth_tau,
+                patience=train.dfl_lp_patience,
+                early_stopping=train.use_validation,
+                quad_reg=train.dfl_lp_quad_reg,
+                lr_grid=list(train.dfl_lp_lr_grid) or None,
+            )
+            hidden = 0 if name == "dfl_lp" else train.dfl_hidden
+            init_kwargs = {**mlp_kwargs}
+            init_kwargs.pop("hidden")
+            if name == "dfl_lp":
+                init_kwargs["hidden_grid"] = None
+            methods.append(
+                DifferentiableLPMethod(name, params, opt.n_scenarios, seed + (808 if name == "dfl_lp" else 909), hidden, init_kwargs, **lp_kwargs)
+            )
         elif name == "dfl_stateful":
             # sees w_{t-1} like the LP does; removes the turnover confound
             methods.append(
