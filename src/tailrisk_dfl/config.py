@@ -43,6 +43,13 @@ class TrainingConfig:
     dfl_lr: float = 0.005
     dfl_weight_decay: float = 1e-4
     dfl_smooth_tau: float = 0.01  # also a v1 leftover. research_grid_v2.json has 1e-4.
+    # v3: spend the validation block. when on, torch methods (dfl*, mlp_two_stage)
+    # pick (lr, hidden, epoch) on val and refit on train+val; ridge/min-var just
+    # get train+val as before. off → identical to v2 behaviour.
+    use_validation: bool = False
+    dfl_patience: int = 30
+    dfl_lr_grid: list[float] = field(default_factory=list)
+    dfl_hidden_grid: list[int] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
