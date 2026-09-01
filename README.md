@@ -48,6 +48,21 @@ I also reran the old v1 code as-is, 10 seeds, six (τ × misspec) settings. Two-
 
 Full dump: [`RESULTS_v2.md`](RESULTS_v2.md).
 
+## Why DFL loses (v3)
+
+v2 couldn't say whether the gap came from the CVaR objective or from the MLP, since `dfl` changes both at once. v3 adds a linear-policy DFL (`linear_dfl`) and an MLP predict-then-optimize (`mlp_two_stage`) to split them, and finally uses the validation block for early stopping and a small (lr, width) search.
+
+- **Objective axis:** `linear_dfl` is 1.28–1.79× worse than ridge `two_stage` in every regime, 0/5 seeds. Same model class, only the loss differs.
+- **Model-class axis:** `mlp_two_stage` ≈ `two_stage` (0.97–1.06×, mostly insignificant).
+- Early stopping improves DFL by 13–25% but doesn't change the ranking. Feeding DFL the previous weights doesn't either.
+- **Sample-size curve** (`nonlinear_misspecified`, n = 250 … 8000): ridge two-stage plateaus at n ≈ 1000, its misspecification floor. DFL overtakes it at n ≈ 2000 and wins 5/5 seeds at n = 8000. But `mlp_two_stage` overtakes earlier and by more (0.69× at n = 8000).
+
+<p align="center">
+  <img src="outputs/sample_size_curve/sample_size_curve.png" width="80%" alt="Sample-size curve in the nonlinear regime">
+</p>
+
+So the v2 gap is statistical efficiency of the loss, not capacity: MSE uses every row, the smoothed CVaR only sees the tail. When misspecification bites, more capacity in the forecaster fixes it more cheaply than an end-to-end objective. Details: [`RESULTS_v3.md`](RESULTS_v3.md).
+
 ## Methods
 
 95% CVaR as a Rockafellar–Uryasev LP ([`optimizer.py`](src/tailrisk_dfl/optimizer.py)). Long-only, fully invested, 20% cap, mean-return tilt, ℓ₁ turnover penalty in the objective and again in the backtest, optional hard turnover constraint. HiGHS.
@@ -62,6 +77,9 @@ Everyone uses that same decision layer:
 | `robust_two_stage` | same, mean shrinkage 0.6×, tail-tilted residual resampling |
 | `dfl` | MLP → softmax, trained on softplus-smoothed CVaR |
 | `robust_dfl` | same, trained at α + 0.025 |
+| `mlp_two_stage` | (v3) same MLP as `dfl`, fit by MSE → bootstrap → CVaR LP |
+| `linear_dfl` | (v3) linear → softmax, trained on smoothed CVaR |
+| `dfl_stateful` | (v3) `dfl` with w_{t−1} as input, trained by rollout |
 | `oracle` | CVaR LP given the true conditional distribution |
 
 [`synthetic.py`](src/tailrisk_dfl/synthetic.py) has the knobs: SNR, Student-t tails, skew, factor/block/crisis correlation, nonlinear or hidden-crash misspecification, crash probability, 5–50 bps costs.
@@ -85,17 +103,19 @@ Set `OMP_NUM_THREADS=1`. If you don’t, torch and numpy fight over OpenMP and i
 ## Caveats
 
 - Synthetic only. You need the true conditional law for oracle regret, so this says nothing about real markets.
-- One hyperparameter setting per method. I only corrected τ; no LR / width sweep for DFL.
+- v2 used one hyperparameter setting per method. v3 fixes this for the torch methods (val-selected lr / width / epoch); ridge alpha is still fixed at 1.
 - Two-stage gets `prev_weights` and the turnover constraint at decision time. DFL is stateless and only sees a turnover proxy in training, so don’t lean on `high_cost_turnover_constrained`.
 - Two cells are weak: `high_cost` on CVaR (*t* = 2.12, 4/5 seeds) and `heavy_tail` on regret (*t* = 2.02, 3/5 seeds).
-- The split is 75/25, not the 60/15/25 in the config. Validation gets concatenated into training ([`experiment.py`](src/tailrisk_dfl/experiment.py)) and never used. I left it; should spend it on DFL hyperparameters later.
+- In v1/v2 the split is effectively 75/25; validation was concatenated into training. v3 (`use_validation: true`) uses it for early stopping, then refits on train+val.
 - `predictable_tail_crash` can’t get much more nonlinear than R² ≈ 0.71–0.80. The tanh basis saturates.
 
 ```
 src/tailrisk_dfl/   optimizer, DFL, generator, walk-forward, metrics
-configs/            smoke.json, research_grid.json (v1), research_grid_v2.json
+configs/            smoke.json, research_grid.json (v1), research_grid_v2.json, research_grid_v3.json, sample_size_curve.json
+scripts/            run_experiment.py, analyze_v3.py (paired-by-seed tables)
 outputs/            committed results + plots
-RESULTS_v2.md       current numbers
+RESULTS_v3.md       ablation + sample-size curve
+RESULTS_v2.md       v2 numbers
 RESULTS_v1_superseded.md
 research_notes.md
 ```

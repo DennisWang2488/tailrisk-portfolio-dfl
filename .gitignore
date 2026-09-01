@@ -28,3 +28,5 @@ outputs/*
 !outputs/research_grid/
 !outputs/research_grid_v2/
 !outputs/smoke/
+!outputs/research_grid_v3/
+!outputs/sample_size_curve/
