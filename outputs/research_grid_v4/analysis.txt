@@ -1,0 +1,120 @@
+
+== v3+v4 means: test_cvar ==
+method                          two_stage  mlp_two_stage  linear_dfl     dfl   dfl_lp  mlp_dfl_lp
+regime                                                                                           
+heavy_tail_medium_sample          0.00849        0.00865     0.01299 0.00992  0.00828     0.01111
+high_cost_turnover_constrained    0.01829        0.01769     0.03112 0.01859  0.01789     0.01922
+nonlinear_misspecified            0.00739        0.00781     0.00945 0.00942  0.00729     0.00807
+predictable_tail_crash            0.01817        0.01886     0.03258 0.02015  0.01913     0.01948
+well_specified_high_sample       -0.00299       -0.00226     0.00107 0.00073 -0.00271    -0.00247
+
+== ranks (1 = best): test_cvar ==
+method                          two_stage  mlp_two_stage  linear_dfl  dfl  dfl_lp  mlp_dfl_lp
+regime                                                                                       
+heavy_tail_medium_sample                2              3           6    4       1           5
+high_cost_turnover_constrained          3              1           6    4       2           5
+nonlinear_misspecified                  2              3           6    5       1           4
+predictable_tail_crash                  1              2           6    5       3           4
+well_specified_high_sample              1              4           6    5       2           3
+
+== v3+v4 means: oracle_regret ==
+method                          two_stage  mlp_two_stage  linear_dfl     dfl  dfl_lp  mlp_dfl_lp
+regime                                                                                          
+heavy_tail_medium_sample          0.00146        0.00188     0.00666 0.00373 0.00133     0.00446
+high_cost_turnover_constrained    0.00241        0.00187     0.01604 0.00314 0.00196     0.00354
+nonlinear_misspecified            0.00420        0.00484     0.00670 0.00664 0.00412     0.00516
+predictable_tail_crash            0.00151        0.00239     0.01648 0.00382 0.00253     0.00300
+well_specified_high_sample        0.00076        0.00150     0.00586 0.00527 0.00106     0.00132
+
+== ranks (1 = best): oracle_regret ==
+method                          two_stage  mlp_two_stage  linear_dfl  dfl  dfl_lp  mlp_dfl_lp
+regime                                                                                       
+heavy_tail_medium_sample                2              3           6    4       1           5
+high_cost_turnover_constrained          3              1           6    4       2           5
+nonlinear_misspecified                  2              3           6    5       1           4
+predictable_tail_crash                  1              2           6    5       3           4
+well_specified_high_sample              1              4           6    5       2           3
+
+== dfl_lp - two_stage (linear forecaster: LP-finetuned vs MSE) ==
+                        regime   dfl_lp  two_stage   ratio  paired_t wins
+    well_specified_high_sample -0.00271   -0.00299 0.90566   0.84359  2/5
+      heavy_tail_medium_sample  0.00828    0.00849 0.97595  -0.35573  3/5
+        nonlinear_misspecified  0.00729    0.00739 0.98631  -0.27554  3/5
+        predictable_tail_crash  0.01913    0.01817 1.05280   1.46858  1/5
+high_cost_turnover_constrained  0.01789    0.01829 0.97847  -1.05167  3/5
+
+== mlp_dfl_lp - mlp_two_stage (MLP forecaster: LP-finetuned vs MSE) ==
+                        regime  mlp_dfl_lp  mlp_two_stage   ratio  paired_t wins
+    well_specified_high_sample    -0.00247       -0.00226 1.09394  -1.16317  4/5
+      heavy_tail_medium_sample     0.01111        0.00865 1.28511   3.50654  0/5
+        nonlinear_misspecified     0.00807        0.00781 1.03274   0.59397  2/5
+        predictable_tail_crash     0.01948        0.01886 1.03289   0.92951  2/5
+high_cost_turnover_constrained     0.01922        0.01769 1.08644   6.87755  0/5
+
+== dfl_lp - linear_dfl (linear: through-the-LP vs softmax policy) ==
+                        regime   dfl_lp  linear_dfl    ratio  paired_t wins
+    well_specified_high_sample -0.00271     0.00107 -2.53587 -12.54732  5/5
+      heavy_tail_medium_sample  0.00828     0.01299  0.63757  -6.93853  5/5
+        nonlinear_misspecified  0.00729     0.00945  0.77132  -8.85775  5/5
+        predictable_tail_crash  0.01913     0.03258  0.58721  -3.98516  5/5
+high_cost_turnover_constrained  0.01789     0.03112  0.57493  -4.41138  5/5
+
+== mlp_dfl_lp - dfl (MLP: through-the-LP vs softmax policy) ==
+                        regime  mlp_dfl_lp     dfl    ratio  paired_t wins
+    well_specified_high_sample    -0.00247 0.00073 -3.40802  -9.37231  5/5
+      heavy_tail_medium_sample     0.01111 0.00992  1.12046   1.51591  0/5
+        nonlinear_misspecified     0.00807 0.00942  0.85682  -1.79846  4/5
+        predictable_tail_crash     0.01948 0.02015  0.96684  -0.67922  2/5
+high_cost_turnover_constrained     0.01922 0.01859  1.03370   1.28385  1/5
+
+== mlp_dfl_lp - two_stage (best true-DFL vs ridge two-stage) ==
+                        regime  mlp_dfl_lp  two_stage   ratio  paired_t wins
+    well_specified_high_sample    -0.00247   -0.00299 0.82742   2.79804  1/5
+      heavy_tail_medium_sample     0.01111    0.00849 1.30930   2.49721  0/5
+        nonlinear_misspecified     0.00807    0.00739 1.09140   5.91238  0/5
+        predictable_tail_crash     0.01948    0.01817 1.07207   2.06093  1/5
+high_cost_turnover_constrained     0.01922    0.01829 1.05117   2.43065  0/5
+
+== selected (v4) ==
+                        regime  seed     method                                                                                                                                              selected
+    well_specified_high_sample     0     dfl_lp    {"init": {"hidden": 0, "lr": 0.02, "epochs": 75, "val_mse": 0.6684184074401855}, "lr": 0.005, "epochs": 5, "val_objective": -0.009824438249876825}
+    well_specified_high_sample     0 mlp_dfl_lp  {"init": {"hidden": 64, "lr": 0.001, "epochs": 88, "val_mse": 0.6876345276832581}, "lr": 0.001, "epochs": 0, "val_objective": -0.006506415589039972}
+    well_specified_high_sample     1     dfl_lp   {"init": {"hidden": 0, "lr": 0.02, "epochs": 87, "val_mse": 0.7069214582443237}, "lr": 0.001, "epochs": 0, "val_objective": -0.0023397459443662287}
+    well_specified_high_sample     1 mlp_dfl_lp  {"init": {"hidden": 64, "lr": 0.001, "epochs": 81, "val_mse": 0.7181918621063232}, "lr": 0.001, "epochs": 5, "val_objective": -0.004331935182196928}
+    well_specified_high_sample     2     dfl_lp {"init": {"hidden": 0, "lr": 0.005, "epochs": 196, "val_mse": 0.7856079936027527}, "lr": 0.005, "epochs": 9, "val_objective": -0.0060509794594637645}
+    well_specified_high_sample     2 mlp_dfl_lp   {"init": {"hidden": 16, "lr": 0.02, "epochs": 49, "val_mse": 0.7927930355072021}, "lr": 0.001, "epochs": 4, "val_objective": -0.006996455182593007}
+    well_specified_high_sample     3     dfl_lp    {"init": {"hidden": 0, "lr": 0.02, "epochs": 66, "val_mse": 0.7156678438186646}, "lr": 0.005, "epochs": 1, "val_objective": -0.003981104763373719}
+    well_specified_high_sample     3 mlp_dfl_lp   {"init": {"hidden": 64, "lr": 0.001, "epochs": 94, "val_mse": 0.732778787612915}, "lr": 0.001, "epochs": 0, "val_objective": -0.006792531768323196}
+    well_specified_high_sample     4     dfl_lp  {"init": {"hidden": 0, "lr": 0.005, "epochs": 200, "val_mse": 0.6998810172080994}, "lr": 0.005, "epochs": 3, "val_objective": -0.005332717654210864}
+    well_specified_high_sample     4 mlp_dfl_lp {"init": {"hidden": 64, "lr": 0.001, "epochs": 72, "val_mse": 0.7187371253967285}, "lr": 0.001, "epochs": 0, "val_objective": -0.0027493361109759027}
+      heavy_tail_medium_sample     0     dfl_lp    {"init": {"hidden": 0, "lr": 0.02, "epochs": 62, "val_mse": 0.7548718452453613}, "lr": 0.005, "epochs": 14, "val_objective": 0.004276911210832334}
+      heavy_tail_medium_sample     0 mlp_dfl_lp   {"init": {"hidden": 64, "lr": 0.001, "epochs": 55, "val_mse": 0.745037317276001}, "lr": 0.001, "epochs": 14, "val_objective": 0.003127900265489478}
+      heavy_tail_medium_sample     1     dfl_lp    {"init": {"hidden": 0, "lr": 0.02, "epochs": 67, "val_mse": 0.8486970663070679}, "lr": 0.005, "epochs": 10, "val_objective": 0.008184446175413692}
+      heavy_tail_medium_sample     1 mlp_dfl_lp  {"init": {"hidden": 64, "lr": 0.001, "epochs": 44, "val_mse": 0.8396887183189392}, "lr": 0.001, "epochs": 1, "val_objective": 0.0065982585933845985}
+      heavy_tail_medium_sample     2     dfl_lp   {"init": {"hidden": 0, "lr": 0.005, "epochs": 102, "val_mse": 0.7767384648323059}, "lr": 0.001, "epochs": 0, "val_objective": 0.008075965268588746}
+      heavy_tail_medium_sample     2 mlp_dfl_lp   {"init": {"hidden": 64, "lr": 0.001, "epochs": 40, "val_mse": 0.7826910018920898}, "lr": 0.001, "epochs": 7, "val_objective": 0.006808395362737809}
+      heavy_tail_medium_sample     3     dfl_lp    {"init": {"hidden": 0, "lr": 0.02, "epochs": 77, "val_mse": 0.8575875759124756}, "lr": 0.001, "epochs": 0, "val_objective": 0.0037967012164937305}
+      heavy_tail_medium_sample     3 mlp_dfl_lp  {"init": {"hidden": 64, "lr": 0.001, "epochs": 69, "val_mse": 0.8705519437789917}, "lr": 0.001, "epochs": 1, "val_objective": 0.0038282332912876046}
+      heavy_tail_medium_sample     4     dfl_lp   {"init": {"hidden": 0, "lr": 0.005, "epochs": 133, "val_mse": 0.9942123889923096}, "lr": 0.005, "epochs": 5, "val_objective": 0.011695801934131842}
+      heavy_tail_medium_sample     4 mlp_dfl_lp   {"init": {"hidden": 64, "lr": 0.001, "epochs": 54, "val_mse": 1.0123497247695923}, "lr": 0.005, "epochs": 2, "val_objective": 0.011560303432385892}
+        nonlinear_misspecified     0     dfl_lp    {"init": {"hidden": 0, "lr": 0.02, "epochs": 79, "val_mse": 0.7905877828598022}, "lr": 0.001, "epochs": 15, "val_objective": 0.006172130206525142}
+        nonlinear_misspecified     0 mlp_dfl_lp  {"init": {"hidden": 16, "lr": 0.001, "epochs": 161, "val_mse": 0.8081656694412231}, "lr": 0.001, "epochs": 3, "val_objective": 0.009023078970791508}
+        nonlinear_misspecified     1     dfl_lp   {"init": {"hidden": 0, "lr": 0.005, "epochs": 109, "val_mse": 0.9319790005683899}, "lr": 0.005, "epochs": 3, "val_objective": 0.007308690719792942}
+        nonlinear_misspecified     1 mlp_dfl_lp   {"init": {"hidden": 64, "lr": 0.001, "epochs": 56, "val_mse": 0.9450340867042542}, "lr": 0.001, "epochs": 0, "val_objective": 0.006656844452353593}
+        nonlinear_misspecified     2     dfl_lp  {"init": {"hidden": 0, "lr": 0.005, "epochs": 143, "val_mse": 0.9943271279335022}, "lr": 0.005, "epochs": 2, "val_objective": 0.0067699541330018525}
+        nonlinear_misspecified     2 mlp_dfl_lp   {"init": {"hidden": 16, "lr": 0.005, "epochs": 75, "val_mse": 1.0064765214920044}, "lr": 0.001, "epochs": 0, "val_objective": 0.005335933088395145}
+        nonlinear_misspecified     3     dfl_lp   {"init": {"hidden": 0, "lr": 0.005, "epochs": 105, "val_mse": 0.8534426689147949}, "lr": 0.005, "epochs": 4, "val_objective": 0.004398122580071232}
+        nonlinear_misspecified     3 mlp_dfl_lp   {"init": {"hidden": 64, "lr": 0.005, "epochs": 13, "val_mse": 0.8588685989379883}, "lr": 0.005, "epochs": 2, "val_objective": 0.005389745946819395}
+        nonlinear_misspecified     4     dfl_lp    {"init": {"hidden": 0, "lr": 0.02, "epochs": 66, "val_mse": 0.9481654763221741}, "lr": 0.001, "epochs": 3, "val_objective": 0.0053514111291779526}
+        nonlinear_misspecified     4 mlp_dfl_lp   {"init": {"hidden": 64, "lr": 0.001, "epochs": 44, "val_mse": 0.9737213253974915}, "lr": 0.001, "epochs": 3, "val_objective": 0.004842557349097506}
+        predictable_tail_crash     0     dfl_lp      {"init": {"hidden": 0, "lr": 0.02, "epochs": 60, "val_mse": 0.8914992809295654}, "lr": 0.001, "epochs": 0, "val_objective": 0.02495772788267575}
+        predictable_tail_crash     0 mlp_dfl_lp   {"init": {"hidden": 64, "lr": 0.005, "epochs": 20, "val_mse": 0.8845481276512146}, "lr": 0.001, "epochs": 0, "val_objective": 0.017667373158800723}
+        predictable_tail_crash     1     dfl_lp     {"init": {"hidden": 0, "lr": 0.02, "epochs": 67, "val_mse": 1.0355315208435059}, "lr": 0.005, "epochs": 1, "val_objective": 0.018020410385973434}
+        predictable_tail_crash     1 mlp_dfl_lp    {"init": {"hidden": 64, "lr": 0.001, "epochs": 50, "val_mse": 1.0467618703842163}, "lr": 0.001, "epochs": 0, "val_objective": 0.01892082156113349}
+        predictable_tail_crash     2     dfl_lp     {"init": {"hidden": 0, "lr": 0.02, "epochs": 61, "val_mse": 0.8596963286399841}, "lr": 0.001, "epochs": 0, "val_objective": 0.018958664320737284}
+        predictable_tail_crash     2 mlp_dfl_lp    {"init": {"hidden": 16, "lr": 0.02, "epochs": 12, "val_mse": 0.8577767610549927}, "lr": 0.001, "epochs": 0, "val_objective": 0.023142109874123167}
+        predictable_tail_crash     3     dfl_lp      {"init": {"hidden": 0, "lr": 0.02, "epochs": 61, "val_mse": 0.9856739640235901}, "lr": 0.001, "epochs": 1, "val_objective": 0.02192157192550953}
+        predictable_tail_crash     3 mlp_dfl_lp   {"init": {"hidden": 16, "lr": 0.005, "epochs": 49, "val_mse": 0.9855280518531799}, "lr": 0.001, "epochs": 0, "val_objective": 0.020948554303838393}
+        predictable_tail_crash     4     dfl_lp    {"init": {"hidden": 0, "lr": 0.02, "epochs": 114, "val_mse": 0.9580513834953308}, "lr": 0.005, "epochs": 5, "val_objective": 0.019489090065071605}
+        predictable_tail_crash     4 mlp_dfl_lp   {"init": {"hidden": 16, "lr": 0.005, "epochs": 69, "val_mse": 0.9447947144508362}, "lr": 0.005, "epochs": 3, "val_objective": 0.021598859028154154}
+high_cost_turnover_constrained     0     dfl_lp    {"init": {"hidden": 0, 

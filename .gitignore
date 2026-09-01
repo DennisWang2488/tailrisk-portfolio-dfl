@@ -30,3 +30,4 @@ outputs/*
 !outputs/smoke/
 !outputs/research_grid_v3/
 !outputs/sample_size_curve/
+!outputs/research_grid_v4/
