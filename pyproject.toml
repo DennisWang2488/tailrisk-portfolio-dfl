@@ -11,6 +11,8 @@ dependencies = [
     "torch",
     "matplotlib",
     "seaborn",
+    "cvxpy",
+    "cvxpylayers",
 ]
 
 [tool.pytest.ini_options]

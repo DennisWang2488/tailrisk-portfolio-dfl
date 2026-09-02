@@ -8,6 +8,7 @@ import pandas as pd
 from .baselines import EqualWeightMethod, MinVarianceMethod, TwoStageCVaRMethod
 from .config import ExperimentConfig, RegimeConfig, config_to_dict
 from .dfl import DecisionFocusedCVaRMethod
+from .dfl_lp import DifferentiableLPMethod
 from .evaluation import backtest_method, compute_metrics, oracle_backtest, summarize_results
 from .optimizer import CVaROptimizerParams
 from .synthetic import SyntheticMarket
@@ -31,6 +32,32 @@ def _make_methods(config: ExperimentConfig, regime: RegimeConfig, seed: int):
         turnover_penalty=opt.turnover_penalty,
         turnover_limit=regime.turnover_limit,
     )
+    dfl_common = dict(
+        n_features=regime.n_features,
+        n_assets=regime.n_assets,
+        alpha=opt.alpha,
+        gamma=opt.gamma,
+        w_max=opt.w_max,
+        transaction_cost=regime.transaction_cost,
+        hidden=train.dfl_hidden,
+        epochs=train.dfl_epochs,
+        lr=train.dfl_lr,
+        weight_decay=train.dfl_weight_decay,
+        smooth_tau=train.dfl_smooth_tau,
+        early_stopping=train.use_validation,
+        patience=train.dfl_patience,
+        lr_grid=list(train.dfl_lr_grid),
+        hidden_grid=list(train.dfl_hidden_grid),
+    )
+    mlp_kwargs = dict(
+        hidden=train.dfl_hidden,
+        epochs=train.dfl_epochs,
+        lr=train.dfl_lr,
+        weight_decay=train.dfl_weight_decay,
+        patience=train.dfl_patience,
+        lr_grid=list(train.dfl_lr_grid) or None,
+        hidden_grid=list(train.dfl_hidden_grid) or None,
+    )
     methods = []
     for name in config.methods:
         if name == "equal_weight":
@@ -42,47 +69,58 @@ def _make_methods(config: ExperimentConfig, regime: RegimeConfig, seed: int):
         elif name == "robust_two_stage":
             # +101 / +202 / +303 so the methods don't share an rng stream
             methods.append(TwoStageCVaRMethod(name, params, train.ridge_alpha, opt.n_scenarios, seed + 202, robust=True))
-        elif name == "dfl":
+        elif name == "mlp_two_stage":
+            # 2x2 ablation, "model class" arm: MLP forecaster + the same LP
             methods.append(
-                DecisionFocusedCVaRMethod(
-                    regime.n_features,
-                    regime.n_assets,
-                    opt.alpha,
-                    opt.gamma,
-                    opt.w_max,
-                    regime.transaction_cost,
-                    train.dfl_hidden,
-                    train.dfl_epochs,
-                    train.dfl_lr,
-                    train.dfl_weight_decay,
-                    train.dfl_smooth_tau,
-                    seed + 303,
-                    robust=False,
-                    name="dfl",
-                )
+                TwoStageCVaRMethod(name, params, train.ridge_alpha, opt.n_scenarios, seed + 505, regressor="mlp", mlp_kwargs=mlp_kwargs)
             )
+        elif name == "dfl":
+            methods.append(DecisionFocusedCVaRMethod(seed=seed + 303, robust=False, name="dfl", **dfl_common))
         elif name == "robust_dfl":
+            methods.append(DecisionFocusedCVaRMethod(seed=seed + 404, robust=True, name="robust_dfl", **dfl_common))
+        elif name == "linear_dfl":
+            # 2x2 ablation, "objective" arm: ridge-sized model, CVaR objective
+            kw = {**dfl_common, "hidden": 0, "hidden_grid": []}
+            methods.append(DecisionFocusedCVaRMethod(seed=seed + 606, robust=False, name="linear_dfl", **kw))
+        elif name in ("dfl_lp", "mlp_dfl_lp"):
+            # true DFL: forecaster fine-tuned through the CVaR LP (cvxpylayers),
+            # warm-started from the MSE fit. linear (dfl_lp) or MLP (mlp_dfl_lp).
+            lp_kwargs = dict(
+                epochs=train.dfl_lp_epochs,
+                lr=train.dfl_lp_lr,
+                weight_decay=train.dfl_weight_decay,
+                batch_size=train.dfl_lp_batch_size,
+                train_scenarios=train.dfl_lp_train_scenarios,
+                smooth_tau=train.dfl_smooth_tau,
+                patience=train.dfl_lp_patience,
+                early_stopping=train.use_validation,
+                quad_reg=train.dfl_lp_quad_reg,
+                lr_grid=list(train.dfl_lp_lr_grid) or None,
+            )
+            hidden = 0 if name == "dfl_lp" else train.dfl_hidden
+            init_kwargs = {**mlp_kwargs}
+            init_kwargs.pop("hidden")
+            if name == "dfl_lp":
+                init_kwargs["hidden_grid"] = None
             methods.append(
-                DecisionFocusedCVaRMethod(
-                    regime.n_features,
-                    regime.n_assets,
-                    opt.alpha,
-                    opt.gamma,
-                    opt.w_max,
-                    regime.transaction_cost,
-                    train.dfl_hidden,
-                    train.dfl_epochs,
-                    train.dfl_lr,
-                    train.dfl_weight_decay,
-                    train.dfl_smooth_tau,
-                    seed + 404,
-                    robust=True,
-                    name="robust_dfl",
-                )
+                DifferentiableLPMethod(name, params, opt.n_scenarios, seed + (808 if name == "dfl_lp" else 909), hidden, init_kwargs, **lp_kwargs)
+            )
+        elif name == "dfl_stateful":
+            # sees w_{t-1} like the LP does; removes the turnover confound
+            methods.append(
+                DecisionFocusedCVaRMethod(seed=seed + 707, robust=False, name="dfl_stateful", use_prev_weights=True, **dfl_common)
             )
         else:
             raise ValueError(f"unknown method: {name}")
     return methods, params
+
+
+def _selected(method) -> dict:
+    sel = getattr(method, "selected_", None)
+    if sel is None:
+        inner = getattr(method, "model_", None)
+        sel = getattr(inner, "selected_", None)
+    return sel or {}
 
 
 def run_experiment(config: ExperimentConfig, output_dir: str | Path) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -95,9 +133,13 @@ def run_experiment(config: ExperimentConfig, output_dir: str | Path) -> tuple[pd
             market = SyntheticMarket(regime, seed)
             path = market.simulate()
             train_slice, val_slice, test_slice = _split_indices(regime)
-            fit_slice = slice(train_slice.start, val_slice.stop)  # train+val. val is unused.
-            x_fit = path.features[fit_slice]
-            r_fit = path.returns[fit_slice]
+            if config.training.use_validation:
+                x_fit, r_fit = path.features[train_slice], path.returns[train_slice]
+                x_val, r_val = path.features[val_slice], path.returns[val_slice]
+            else:
+                fit_slice = slice(train_slice.start, val_slice.stop)  # train+val. val is unused (v1/v2 behaviour).
+                x_fit, r_fit = path.features[fit_slice], path.returns[fit_slice]
+                x_val, r_val = None, None
             x_test = path.features[test_slice]
             r_test = path.returns[test_slice]
             methods, params = _make_methods(config, regime, seed)
@@ -111,7 +153,7 @@ def run_experiment(config: ExperimentConfig, output_dir: str | Path) -> tuple[pd
                 seed + 999,
             )
             for method in methods:
-                method.fit(x_fit, r_fit)
+                method.fit(x_fit, r_fit, x_val, r_val)
                 result = backtest_method(method, x_test, r_test, regime.transaction_cost)
                 metrics = compute_metrics(result, config.optimizer.alpha, config.optimizer.gamma, oracle)
                 metrics.update(
@@ -119,6 +161,8 @@ def run_experiment(config: ExperimentConfig, output_dir: str | Path) -> tuple[pd
                         "experiment": config.experiment_name,
                         "regime": regime.name,
                         "seed": seed,
+                        "n_periods": regime.n_periods,
+                        "selected": json.dumps(_selected(method)),
                     }
                 )
                 rows.append(metrics)
